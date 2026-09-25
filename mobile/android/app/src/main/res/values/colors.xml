@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#238654</color>
+    <color name="colorPrimaryDark">#166B40</color>
+    <color name="colorAccent">#35C779</color>
+    <color name="acdc_green">#238654</color>
+    <color name="acdc_splash_background">#FFFFFF</color>
+</resources>

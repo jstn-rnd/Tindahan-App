@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "acdc-backend"
+version = "0.1.0"
+description = "Frappe sync backend for the ACDC offline store app"
+requires-python = ">=3.10"
+authors = [{ name = "ACDC" }]
+dependencies = []
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["acdc_backend*"]

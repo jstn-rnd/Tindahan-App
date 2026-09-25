@@ -1,0 +1,10 @@
+{
+  "name": "ACDC",
+  "short_name": "ACDC",
+  "description": "Offline-first sari-sari store management",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#238654",
+  "orientation": "any"
+}

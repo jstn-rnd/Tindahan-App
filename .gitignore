@@ -1,0 +1,32 @@
+.toolchains/
+.pnpm-store/
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+google-services.json
+local.properties
+
+# Device-local databases and backups
+*.db
+*.sqlite
+*.sqlite3
+*.realm
+*.bak
+
+# Generated Android packages (keep the shareable root APK)
+*.apk
+!/ACDC.apk
+*.aab
+*.aar
