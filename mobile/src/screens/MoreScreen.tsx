@@ -1,9 +1,9 @@
 import {
   BarChart3,
   ChevronRight,
+  DatabaseBackup,
   LockKeyhole,
   ReceiptText,
-  RefreshCw,
   Settings,
   WalletCards,
 } from 'lucide-react';
@@ -18,7 +18,7 @@ const rows: Array<{ screen: AppScreen; label: string; description: string; icon:
   { screen: 'sales', label: 'Sales History', description: 'Review, repeat, or void sales', icon: ReceiptText },
   { screen: 'expenses', label: 'Expenses', description: 'Record and review store expenses', icon: WalletCards },
   { screen: 'reports', label: 'Reports', description: 'Sales, profit, credit, and stock', icon: BarChart3 },
-  { screen: 'sync', label: 'Sync & Backup', description: 'Offline data and Frappe connection', icon: RefreshCw },
+  { screen: 'backup', label: 'Backup & Restore', description: 'Optional Google Drive or device backup', icon: DatabaseBackup },
   { screen: 'settings', label: 'Store Settings', description: 'Appearance, access, and preferences', icon: Settings },
 ];
 

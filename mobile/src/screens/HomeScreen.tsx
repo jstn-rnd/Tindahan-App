@@ -41,7 +41,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
         <article className="metric-card"><span>Sales today</span><strong>{formatMoney(metrics.salesTodayCents)}</strong></article>
         <article className="metric-card"><span>Estimated profit</span><strong>{formatMoney(metrics.estimatedProfitTodayCents)}</strong></article>
         <article className="metric-card"><span>Credit balance</span><strong>{formatMoney(metrics.outstandingCreditCents)}</strong></article>
-        <article className="metric-card"><span>Waiting to sync</span><strong>{metrics.pendingSyncCount}</strong></article>
+        <article className="metric-card"><span>Low-stock items</span><strong>{metrics.lowStockCount}</strong></article>
       </section>
 
       <section>

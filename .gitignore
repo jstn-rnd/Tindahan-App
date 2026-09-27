@@ -25,8 +25,11 @@ local.properties
 *.realm
 *.bak
 
-# Generated Android packages (keep the shareable root APK)
+# Generated mobile packages (keep the shareable release files)
 *.apk
-!/ACDC.apk
+!/android/ACDC.apk
 *.aab
 *.aar
+*.ipa
+!/ios/ACDC.ipa
+*.xcarchive

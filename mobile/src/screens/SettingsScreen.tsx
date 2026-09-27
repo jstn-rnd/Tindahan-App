@@ -62,11 +62,8 @@ export function SettingsScreen() {
     </section>
 
     <section className="settings-section">
-      <div className="settings-heading"><span><LockKeyhole size={19} /></span><div><h2>Security & Connection</h2><p>Connection can remain empty while the app is offline-only.</p></div></div>
-      <div className="form-grid">
-        <label className="field-label"><span>Device PIN</span><input inputMode="numeric" type="password" value={form.pin} onChange={(event) => setForm({ ...form, pin: event.target.value.replace(/\D/g, '').slice(0, 6) })} /></label>
-        <label className="field-label"><span>Frappe server URL</span><input inputMode="url" value={form.serverUrl} onChange={(event) => setForm({ ...form, serverUrl: event.target.value })} placeholder="https://store.example.com" /></label>
-      </div>
+      <div className="settings-heading"><span><LockKeyhole size={19} /></span><div><h2>Security</h2><p>Use a 4 to 6 digit PIN to protect store records.</p></div></div>
+      <label className="field-label"><span>Device PIN</span><input inputMode="numeric" type="password" value={form.pin} onChange={(event) => setForm({ ...form, pin: event.target.value.replace(/\D/g, '').slice(0, 6) })} /></label>
     </section>
 
     {message && <p className="success-callout">{message}</p>}

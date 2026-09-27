@@ -44,7 +44,7 @@ export function createInitialState(): AppState {
   ];
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     products,
     stockMovements: products.map((item) => ({
       id: makeId(),
@@ -53,13 +53,11 @@ export function createInitialState(): AppState {
       reason: 'opening' as const,
       unitCostCents: item.costCents,
       createdAt: now,
-      syncState: 'pending' as const,
     })),
     sales: [],
     customers: [],
     creditEntries: [],
     expenses: [],
-    outbox: [],
     settings: {
       storeName: 'ACDC',
       ownerName: 'Store Owner',
@@ -67,7 +65,7 @@ export function createInitialState(): AppState {
       pin: '1234',
       outOfStockPolicy: 'warn',
       requirePinForPriceChange: false,
-      serverUrl: '',
     },
+    backup: { history: [] },
   };
 }

@@ -15,7 +15,7 @@ import { StockScreen } from './screens/StockScreen';
 import { ExpensesScreen } from './screens/ExpensesScreen';
 import { ReportsScreen } from './screens/ReportsScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
-import { SyncScreen } from './screens/SyncScreen';
+import { BackupScreen } from './screens/BackupScreen';
 import { screenTitles, type AppScreen } from './types/navigation';
 
 export default function App() {
@@ -23,12 +23,18 @@ export default function App() {
   const [initialized, setInitialized] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
   const [screen, setScreen] = useState<AppScreen>('home');
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isOnline, setIsOnline] = useState(false);
+  const [connectionType, setConnectionType] = useState('none');
 
   useEffect(() => {
     acdcStore.initialize().finally(() => setInitialized(true));
-    Network.getStatus().then((status) => setIsOnline(status.connected)).catch(() => undefined);
-    const listener = Network.addListener('networkStatusChange', (status) => setIsOnline(status.connected));
+    const applyNetworkStatus = (status: { connected: boolean; connectionType: string }) => {
+      const connected = status.connected && status.connectionType !== 'none';
+      setIsOnline(connected);
+      setConnectionType(connected ? status.connectionType : 'none');
+    };
+    Network.getStatus().then(applyNetworkStatus).catch(() => undefined);
+    const listener = Network.addListener('networkStatusChange', applyNetworkStatus);
     return () => { listener.then((handle) => handle.remove()).catch(() => undefined); };
   }, []);
 
@@ -63,15 +69,15 @@ export default function App() {
     expenses: <ExpensesScreen />,
     reports: <ReportsScreen />,
     settings: <SettingsScreen />,
-    sync: <SyncScreen isOnline={isOnline} />,
+    backup: <BackupScreen />,
   };
 
   return (
     <AppShell
       activeScreen={screen}
       screenTitle={screenTitles[screen]}
-      pendingSyncCount={state.outbox.length}
       isOnline={isOnline}
+      connectionType={connectionType}
       onNavigate={setScreen}
     >
       {screenContent[screen]}

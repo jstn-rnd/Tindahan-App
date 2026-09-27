@@ -164,7 +164,7 @@ export function SellScreen({ onNavigate }: SellScreenProps) {
       )}
 
       {savedSale && (
-        <Modal title="Sale saved" description="Saved on this phone and ready to sync." onClose={() => setSavedSale(null)}
+        <Modal title="Sale saved" description="Saved safely on this phone." onClose={() => setSavedSale(null)}
           footer={<><button className="secondary-button" type="button" onClick={() => { setSavedSale(null); onNavigate('home'); }}>Home</button><button className="primary-button" type="button" onClick={() => setSavedSale(null)}>New Sale</button></>}>
           <div className="sale-success"><CheckCircle2 size={52} /><strong>{formatMoney(savedSale.totalCents)}</strong><span>{savedSale.receiptNumber}</span>{savedSale.changeCents > 0 && <p>Change: {formatMoney(savedSale.changeCents)}</p>}</div>
         </Modal>

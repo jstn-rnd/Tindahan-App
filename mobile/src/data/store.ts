@@ -8,7 +8,6 @@ import type {
   CustomerInput,
   DashboardMetrics,
   Expense,
-  OutboxEvent,
   Product,
   ProductInput,
   Sale,
@@ -19,6 +18,81 @@ import type {
 import { isToday, makeId } from '../utils/format';
 
 type Listener = () => void;
+
+type UnknownRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is UnknownRecord {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function cleanLegacyItems<T>(value: unknown): T[] {
+  return (value as UnknownRecord[]).map((item) => {
+    const { syncState: _legacySyncState, ...current } = item;
+    return current as T;
+  });
+}
+
+function migrateAppState(value: unknown): AppState | null {
+  if (!isRecord(value) || !isRecord(value.settings)) return null;
+
+  const requiredLists = [
+    value.products,
+    value.stockMovements,
+    value.sales,
+    value.customers,
+    value.creditEntries,
+    value.expenses,
+  ];
+  if (requiredLists.some((list) => !Array.isArray(list) || !(list as unknown[]).every(isRecord))) return null;
+
+  const defaults = createInitialState();
+  const settings = value.settings;
+  const backup = isRecord(value.backup) ? value.backup : {};
+  const history = Array.isArray(backup.history)
+    ? backup.history.filter((item): item is string => typeof item === 'string' && !Number.isNaN(Date.parse(item)))
+    : [];
+
+  return {
+    schemaVersion: 2,
+    products: cleanLegacyItems<Product>(value.products),
+    stockMovements: cleanLegacyItems<StockMovement>(value.stockMovements),
+    sales: cleanLegacyItems<Sale>(value.sales),
+    customers: cleanLegacyItems<Customer>(value.customers),
+    creditEntries: cleanLegacyItems<CreditEntry>(value.creditEntries),
+    expenses: cleanLegacyItems<Expense>(value.expenses),
+    settings: {
+      storeName: typeof settings.storeName === 'string' ? settings.storeName : defaults.settings.storeName,
+      ownerName: typeof settings.ownerName === 'string' ? settings.ownerName : defaults.settings.ownerName,
+      theme: settings.theme === 'dark' ? 'dark' : 'light',
+      pin: typeof settings.pin === 'string' && /^\d{4,6}$/.test(settings.pin)
+        ? settings.pin
+        : defaults.settings.pin,
+      outOfStockPolicy: settings.outOfStockPolicy === 'allow' || settings.outOfStockPolicy === 'block'
+        ? settings.outOfStockPolicy
+        : 'warn',
+      requirePinForPriceChange: settings.requirePinForPriceChange === true,
+    },
+    backup: {
+      history,
+      googleEmail: typeof backup.googleEmail === 'string' ? backup.googleEmail : undefined,
+      localFileUri: typeof backup.localFileUri === 'string'
+        ? backup.localFileUri
+        : typeof backup.fileUri === 'string' ? backup.fileUri : undefined,
+      localFileName: typeof backup.localFileName === 'string'
+        ? backup.localFileName
+        : typeof backup.fileName === 'string' ? backup.fileName : undefined,
+      localLastBackupAt: typeof backup.localLastBackupAt === 'string'
+        ? backup.localLastBackupAt
+        : typeof backup.lastBackupAt === 'string' && typeof backup.fileUri === 'string'
+          ? backup.lastBackupAt
+          : undefined,
+      driveFileId: typeof backup.driveFileId === 'string' ? backup.driveFileId : undefined,
+      driveFileName: typeof backup.driveFileName === 'string' ? backup.driveFileName : undefined,
+      driveLastBackupAt: typeof backup.driveLastBackupAt === 'string' ? backup.driveLastBackupAt : undefined,
+      lastBackupAt: typeof backup.lastBackupAt === 'string' ? backup.lastBackupAt : history.at(-1),
+    },
+  };
+}
 
 export class ACDCStore {
   private state: AppState = createInitialState();
@@ -41,8 +115,9 @@ export class ACDCStore {
     if (this.ready) return;
     await this.storage.initialize();
     const saved = await this.storage.load();
-    if (saved?.schemaVersion === 1) this.state = saved;
-    else await this.storage.save(this.state);
+    const migrated = migrateAppState(saved);
+    if (migrated) this.state = migrated;
+    await this.storage.save(this.state);
     this.ready = true;
     this.emit();
   }
@@ -69,7 +144,6 @@ export class ACDCStore {
       lowStockCount: this.state.products.filter(
         (product) => product.active && product.trackStock && product.stock <= product.lowStockLevel,
       ).length,
-      pendingSyncCount: this.state.outbox.length,
     };
   }
 
@@ -99,7 +173,6 @@ export class ACDCStore {
         ...this.state,
         products: this.state.products.map((product) => product.id === productId ? saved : product),
       };
-      this.queue('product', productId, input.active ? 'update' : 'disable');
     } else {
       saved = {
         id: makeId(),
@@ -116,7 +189,6 @@ export class ACDCStore {
         reason: 'opening',
         unitCostCents: input.costCents,
         createdAt: timestamp,
-        syncState: 'pending',
       } : null;
       this.state = {
         ...this.state,
@@ -125,8 +197,6 @@ export class ACDCStore {
           ? [...this.state.stockMovements, openingMovement]
           : this.state.stockMovements,
       };
-      this.queue('product', saved.id, 'create');
-      if (openingMovement) this.queue('stock_movement', openingMovement.id, 'create');
     }
 
     await this.commit();
@@ -141,7 +211,6 @@ export class ACDCStore {
         ? { ...product, active, updatedAt: timestamp }
         : product),
     };
-    this.queue('product', productId, active ? 'update' : 'disable');
     await this.commit();
   }
 
@@ -178,7 +247,6 @@ export class ACDCStore {
       note: note.trim() || undefined,
       unitCostCents,
       createdAt: timestamp,
-      syncState: 'pending',
     };
     this.state = {
       ...this.state,
@@ -192,7 +260,6 @@ export class ACDCStore {
         : item),
       stockMovements: [...this.state.stockMovements, movement],
     };
-    this.queue('stock_movement', movement.id, 'create');
     await this.commit();
   }
 
@@ -245,7 +312,6 @@ export class ACDCStore {
       note: input.note?.trim() || undefined,
       status: 'completed',
       createdAt: timestamp,
-      syncState: 'pending',
     };
     const movementByProduct = new Map<string, number>();
     for (const item of items) {
@@ -259,7 +325,6 @@ export class ACDCStore {
       reason: 'sale',
       sourceId: sale.id,
       createdAt: timestamp,
-      syncState: 'pending',
     }));
     let customers = this.state.customers;
     let creditEntries = this.state.creditEntries;
@@ -271,13 +336,11 @@ export class ACDCStore {
         amountCents: creditCents,
         saleId: sale.id,
         createdAt: timestamp,
-        syncState: 'pending',
       };
       customers = customers.map((customer) => customer.id === input.customerId
         ? { ...customer, balanceCents: customer.balanceCents + creditCents, updatedAt: timestamp }
         : customer);
       creditEntries = [...creditEntries, entry];
-      this.queue('credit_entry', entry.id, 'create');
     }
 
     this.state = {
@@ -291,8 +354,6 @@ export class ACDCStore {
       customers,
       creditEntries,
     };
-    this.queue('sale', sale.id, 'create');
-    movements.forEach((movement) => this.queue('stock_movement', movement.id, 'create'));
     await this.commit();
     return sale;
   }
@@ -316,7 +377,6 @@ export class ACDCStore {
       reason: 'sale-reversal',
       sourceId: sale.id,
       createdAt: timestamp,
-      syncState: 'pending',
     }));
     let customers = this.state.customers;
     let creditEntries = this.state.creditEntries;
@@ -328,18 +388,16 @@ export class ACDCStore {
         amountCents: -sale.creditCents,
         saleId: sale.id,
         createdAt: timestamp,
-        syncState: 'pending',
       };
       customers = customers.map((customer) => customer.id === sale.customerId
         ? { ...customer, balanceCents: Math.max(0, customer.balanceCents - sale.creditCents), updatedAt: timestamp }
         : customer);
       creditEntries = [...creditEntries, entry];
-      this.queue('credit_entry', entry.id, 'create');
     }
     this.state = {
       ...this.state,
       sales: this.state.sales.map((item) => item.id === saleId
-        ? { ...item, status: 'voided', voidedAt: timestamp, syncState: 'pending' }
+        ? { ...item, status: 'voided', voidedAt: timestamp }
         : item),
       products: this.state.products.map((product) => ({
         ...product,
@@ -349,8 +407,6 @@ export class ACDCStore {
       customers,
       creditEntries,
     };
-    this.queue('sale', saleId, 'void');
-    reversals.forEach((movement) => this.queue('stock_movement', movement.id, 'create'));
     await this.commit();
   }
 
@@ -367,7 +423,6 @@ export class ACDCStore {
         ...this.state,
         customers: this.state.customers.map((customer) => customer.id === customerId ? saved : customer),
       };
-      this.queue('customer', customerId, input.active ? 'update' : 'disable');
     } else {
       saved = {
         id: makeId(),
@@ -378,7 +433,6 @@ export class ACDCStore {
         updatedAt: timestamp,
       };
       this.state = { ...this.state, customers: [...this.state.customers, saved] };
-      this.queue('customer', saved.id, 'create');
     }
     await this.commit();
     return saved;
@@ -398,7 +452,6 @@ export class ACDCStore {
       paymentMethod,
       note: note.trim() || undefined,
       createdAt: timestamp,
-      syncState: 'pending',
     };
     this.state = {
       ...this.state,
@@ -407,11 +460,10 @@ export class ACDCStore {
         : item),
       creditEntries: [...this.state.creditEntries, entry],
     };
-    this.queue('credit_entry', entry.id, 'create');
     await this.commit();
   }
 
-  async saveExpense(input: Omit<Expense, 'id' | 'createdAt' | 'syncState' | 'voided'>): Promise<void> {
+  async saveExpense(input: Omit<Expense, 'id' | 'createdAt' | 'voided'>): Promise<void> {
     if (!input.description.trim()) throw new Error('Expense description is required.');
     if (input.amountCents <= 0) throw new Error('Expense amount must be greater than zero.');
     const expense: Expense = {
@@ -419,11 +471,9 @@ export class ACDCStore {
       ...input,
       description: input.description.trim(),
       createdAt: new Date().toISOString(),
-      syncState: 'pending',
       voided: false,
     };
     this.state = { ...this.state, expenses: [...this.state.expenses, expense] };
-    this.queue('expense', expense.id, 'create');
     await this.commit();
   }
 
@@ -432,22 +482,117 @@ export class ACDCStore {
       throw new Error('PIN must contain 4 to 6 digits.');
     }
     this.state = { ...this.state, settings: { ...this.state.settings, ...changes } };
-    this.queue('settings', 'store-settings', 'update');
     await this.commit();
   }
 
-  private queue(entityType: OutboxEvent['entityType'], entityId: string, action: OutboxEvent['action']): void {
-    this.state.outbox = [
-      ...this.state.outbox,
-      {
-        id: makeId(),
-        entityType,
-        entityId,
-        action,
-        createdAt: new Date().toISOString(),
-        attempts: 0,
+  prepareBackup(): { data: string; createdAt: string } {
+    const createdAt = new Date().toISOString();
+    const history = [...this.state.backup.history, createdAt].slice(-1000);
+    const portableState: AppState = {
+      ...this.state,
+      backup: {
+        ...this.state.backup,
+        history,
+        lastBackupAt: createdAt,
       },
-    ];
+    };
+    return {
+      createdAt,
+      data: JSON.stringify({
+        format: 'ACDC_BACKUP',
+        version: 1,
+        createdAt,
+        state: portableState,
+      }),
+    };
+  }
+
+  async completeLocalBackup(createdAt: string, fileUri: string, fileName: string): Promise<void> {
+    this.state = {
+      ...this.state,
+      backup: {
+        ...this.state.backup,
+        history: [...this.state.backup.history, createdAt].slice(-1000),
+        localFileUri: fileUri,
+        localFileName: fileName,
+        localLastBackupAt: createdAt,
+        lastBackupAt: createdAt,
+      },
+    };
+    await this.commit();
+  }
+
+  async completeDriveBackup(createdAt: string, fileId: string, fileName: string): Promise<void> {
+    this.state = {
+      ...this.state,
+      backup: {
+        ...this.state.backup,
+        history: [...this.state.backup.history, createdAt].slice(-1000),
+        driveFileId: fileId,
+        driveFileName: fileName,
+        driveLastBackupAt: createdAt,
+        lastBackupAt: createdAt,
+      },
+    };
+    await this.commit();
+  }
+
+  async setGoogleBackupEmail(email?: string): Promise<void> {
+    this.state = {
+      ...this.state,
+      backup: {
+        ...this.state.backup,
+        googleEmail: email?.trim().toLowerCase() || undefined,
+        driveFileId: email ? this.state.backup.driveFileId : undefined,
+        driveFileName: email ? this.state.backup.driveFileName : undefined,
+      },
+    };
+    await this.commit();
+  }
+
+  async rememberLocalBackupFile(fileUri: string, fileName: string): Promise<void> {
+    this.state = {
+      ...this.state,
+      backup: {
+        ...this.state.backup,
+        localFileUri: fileUri,
+        localFileName: fileName,
+      },
+    };
+    await this.commit();
+  }
+
+  async rememberDriveBackupFile(fileId: string, fileName: string): Promise<void> {
+    this.state = {
+      ...this.state,
+      backup: {
+        ...this.state.backup,
+        driveFileId: fileId,
+        driveFileName: fileName,
+      },
+    };
+    await this.commit();
+  }
+
+  async restoreBackup(data: string): Promise<void> {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(data) as unknown;
+    } catch {
+      throw new Error('That file is not a valid ACDC backup.');
+    }
+    if (!isRecord(parsed) || parsed.format !== 'ACDC_BACKUP' || parsed.version !== 1) {
+      throw new Error('Choose an ACDC backup file.');
+    }
+    const restored = migrateAppState(parsed.state);
+    if (!restored) throw new Error('The backup is incomplete or damaged.');
+    this.state = {
+      ...restored,
+      // Backup destinations and account authorization belong to this device,
+      // not to the imported file. Keep the current connection metadata.
+      backup: this.state.backup,
+    };
+    await this.commit();
   }
 
   private async commit(): Promise<void> {

@@ -9,7 +9,7 @@ export type AppScreen =
   | 'expenses'
   | 'reports'
   | 'settings'
-  | 'sync';
+  | 'backup';
 
 export const screenTitles: Record<AppScreen, string> = {
   home: 'Home',
@@ -22,5 +22,5 @@ export const screenTitles: Record<AppScreen, string> = {
   expenses: 'Expenses',
   reports: 'Reports',
   settings: 'Store Settings',
-  sync: 'Sync & Backup',
+  backup: 'Backup & Restore',
 };

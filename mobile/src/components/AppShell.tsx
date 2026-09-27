@@ -2,11 +2,14 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import {
   BarChart3,
   Home,
+  Globe2,
   Menu,
   NotebookTabs,
   PackageSearch,
+  Signal,
   ShoppingBasket,
   Store,
+  Wifi,
   WifiOff,
 } from 'lucide-react';
 import type { AppScreen } from '../types/navigation';
@@ -15,8 +18,8 @@ interface AppShellProps {
   children: ReactNode;
   activeScreen: AppScreen;
   screenTitle: string;
-  pendingSyncCount: number;
   isOnline: boolean;
+  connectionType: string;
   onNavigate: (screen: AppScreen) => void;
 }
 
@@ -38,8 +41,8 @@ export function AppShell({
   children,
   activeScreen,
   screenTitle,
-  pendingSyncCount,
   isOnline,
+  connectionType,
   onNavigate,
 }: AppShellProps) {
   const mainRef = useRef<HTMLElement>(null);
@@ -61,6 +64,11 @@ export function AppShell({
     </button>
   );
 
+  const networkLabel = isOnline
+    ? connectionType === 'wifi' ? 'Online via Wi-Fi' : connectionType === 'cellular' ? 'Online via mobile data' : 'Online'
+    : 'Offline';
+  const NetworkIcon = !isOnline ? WifiOff : connectionType === 'wifi' ? Wifi : connectionType === 'cellular' ? Signal : Globe2;
+
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -71,10 +79,14 @@ export function AppShell({
             <small>{screenTitle}</small>
           </span>
         </div>
-        <button className="sync-chip" type="button" onClick={() => onNavigate('sync')}>
-          {!isOnline && <WifiOff size={14} />}
-          <span>{isOnline ? (pendingSyncCount ? `${pendingSyncCount} waiting` : 'Saved offline') : 'Offline'}</span>
-        </button>
+        <span
+          className={`network-status ${isOnline ? 'online' : 'offline'}`}
+          role="status"
+          aria-label={networkLabel}
+          title={networkLabel}
+        >
+          <NetworkIcon size={20} />
+        </span>
       </header>
 
       <aside className="tablet-sidebar" aria-label="Main navigation">

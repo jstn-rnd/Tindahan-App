@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const mobileDirectory = resolve(scriptDirectory, '..');
 const source = resolve(mobileDirectory, 'android/app/build/outputs/apk/debug/app-debug.apk');
-const destination = resolve(mobileDirectory, '../ACDC.apk');
+const destination = resolve(mobileDirectory, '../android/ACDC.apk');
 
 await stat(source);
 await mkdir(dirname(destination), { recursive: true });

@@ -10,6 +10,8 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         setTheme(R.style.AppTheme_NoActionBar);
         EdgeToEdge.enable(this);
+        registerPlugin(BackupFilePlugin.class);
+        registerPlugin(GoogleDriveBackupPlugin.class);
         super.onCreate(savedInstanceState);
         ActionBar actionBar = getSupportActionBar();
         if (actionBar != null) {

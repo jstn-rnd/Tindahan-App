@@ -4,8 +4,6 @@ import {
   SQLiteConnection,
   type SQLiteDBConnection,
 } from '@capacitor-community/sqlite';
-import type { AppState } from '../types/models';
-
 const DATABASE_NAME = 'acdc';
 const STORAGE_KEY = 'acdc.app-state.v1';
 
@@ -52,18 +50,18 @@ export class StateStorage {
     }
   }
 
-  async load(): Promise<AppState | null> {
+  async load(): Promise<unknown> {
     if (this.mode === 'sqlite' && this.database) {
       const result = await this.database.query('SELECT state_json FROM app_state WHERE id = 1;');
       const stateJson = result.values?.[0]?.state_json;
-      return stateJson ? JSON.parse(String(stateJson)) as AppState : null;
+      return stateJson ? JSON.parse(String(stateJson)) as unknown : null;
     }
 
     const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) as AppState : null;
+    return saved ? JSON.parse(saved) as unknown : null;
   }
 
-  async save(state: AppState): Promise<void> {
+  async save(state: import('../types/models').AppState): Promise<void> {
     const stateJson = JSON.stringify(state);
 
     if (this.mode === 'sqlite' && this.database) {

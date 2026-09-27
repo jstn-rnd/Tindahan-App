@@ -1,5 +1,4 @@
 export type ThemeMode = 'light' | 'dark';
-export type SyncState = 'pending' | 'synced' | 'error';
 export type PaymentType = 'cash' | 'ewallet' | 'credit';
 export type SaleStatus = 'completed' | 'voided';
 
@@ -29,7 +28,6 @@ export interface StockMovement {
   note?: string;
   sourceId?: string;
   createdAt: string;
-  syncState: SyncState;
 }
 
 export interface SaleItem {
@@ -59,7 +57,6 @@ export interface Sale {
   status: SaleStatus;
   createdAt: string;
   voidedAt?: string;
-  syncState: SyncState;
 }
 
 export interface Customer {
@@ -83,7 +80,6 @@ export interface CreditEntry {
   saleId?: string;
   note?: string;
   createdAt: string;
-  syncState: SyncState;
 }
 
 export interface Expense {
@@ -95,18 +91,7 @@ export interface Expense {
   paidFromStoreCash: boolean;
   note?: string;
   createdAt: string;
-  syncState: SyncState;
   voided: boolean;
-}
-
-export interface OutboxEvent {
-  id: string;
-  entityType: 'product' | 'stock_movement' | 'sale' | 'customer' | 'credit_entry' | 'expense' | 'settings';
-  entityId: string;
-  action: 'create' | 'update' | 'disable' | 'void';
-  createdAt: string;
-  attempts: number;
-  lastError?: string;
 }
 
 export interface StoreSettings {
@@ -116,20 +101,30 @@ export interface StoreSettings {
   pin: string;
   outOfStockPolicy: 'allow' | 'warn' | 'block';
   requirePinForPriceChange: boolean;
-  serverUrl: string;
-  lastSyncAt?: string;
+}
+
+export interface BackupMetadata {
+  history: string[];
+  googleEmail?: string;
+  localFileUri?: string;
+  localFileName?: string;
+  localLastBackupAt?: string;
+  driveFileId?: string;
+  driveFileName?: string;
+  driveLastBackupAt?: string;
+  lastBackupAt?: string;
 }
 
 export interface AppState {
-  schemaVersion: 1;
+  schemaVersion: 2;
   products: Product[];
   stockMovements: StockMovement[];
   sales: Sale[];
   customers: Customer[];
   creditEntries: CreditEntry[];
   expenses: Expense[];
-  outbox: OutboxEvent[];
   settings: StoreSettings;
+  backup: BackupMetadata;
 }
 
 export interface ProductInput {
@@ -172,5 +167,4 @@ export interface DashboardMetrics {
   estimatedProfitTodayCents: number;
   outstandingCreditCents: number;
   lowStockCount: number;
-  pendingSyncCount: number;
 }
